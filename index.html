@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lista de Itens para Reserva</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-gradient-to-r from-indigo-100 to-blue-100 min-h-screen flex flex-col items-center p-6">
+
+  <h1 class="text-4xl font-bold text-gray-800 mb-8 text-center">📦 Itens Disponíveis para Reserva</h1>
+
+  <div id="lista" class="w-full max-w-6xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
+
+  <!-- Modal para reservar -->
+  <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white p-6 rounded-xl shadow-xl w-96">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Reservar Item</h2>
+      <p class="mb-2 text-gray-700">Item: <span id="itemSelecionado" class="font-bold text-indigo-600"></span></p>
+      <input type="text" id="nomeUsuario" class="w-full p-3 border rounded mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Seu nome" />
+      <div class="flex justify-end space-x-2">
+        <button onclick="fecharModal()" class="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">Cancelar</button>
+        <button onclick="confirmarReserva()" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzb-5VcfAZq5UwaT93-tLovVGsHlm2VQbiHPPATsYJ0YFr3EhFQ3IJHWkTE_OZXXJhm/exec';
+    let itemSelecionado = '';
+
+    async function carregarDados() {
+      try {
+        const res = await fetch(API_URL);
+        const dados = await res.json();
+        const container = document.getElementById('lista');
+        container.innerHTML = '';
+
+        dados.forEach(item => {
+          const nomeItem = item.item?.trim();
+          const disponivel = item["disponibilidade "] === true;
+          const reservadoPor = item["reservado por"]?.trim();
+
+          const statusTexto = disponivel ? '✅ Disponível' : '❌ Reservado';
+          const statusCor = disponivel ? 'text-green-600' : 'text-red-600';
+
+          const card = document.createElement('div');
+          card.className = 'bg-white rounded-xl shadow-md p-5 transition hover:shadow-xl';
+
+          card.innerHTML = `
+            <h3 class="text-2xl font-semibold mb-2 text-gray-800">${nomeItem}</h3>
+            <p class="text-sm ${statusCor} font-semibold mb-1">${statusTexto}</p>
+            <p class="text-sm text-gray-500 mb-4">Reservado por: <strong>${reservadoPor || '---'}</strong></p>
+            ${disponivel ? `
+              <button class="w-full mt-auto px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600" onclick="abrirModal('${nomeItem}')">Reservar</button>
+            ` : `
+              <button class="w-full mt-auto px-4 py-2 bg-gray-300 text-gray-600 rounded cursor-not-allowed" disabled>Indisponível</button>
+            `}
+          `;
+          container.appendChild(card);
+        });
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+      }
+    }
+
+    function abrirModal(item) {
+      itemSelecionado = item;
+      document.getElementById('itemSelecionado').textContent = item;
+      document.getElementById('nomeUsuario').value = '';
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('flex');
+    }
+
+    function fecharModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal').classList.remove('flex');
+    }
+
+    async function confirmarReserva() {
+      const nome = document.getElementById('nomeUsuario').value.trim();
+      if (!nome) {
+        alert('Por favor, insira seu nome.');
+        return;
+      }
+
+      const dados = {
+        item: itemSelecionado,
+        "disponibilidade ": false,
+        "reservado por": nome
+      };
+
+      try {
+        const resposta = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dados)
+        });
+
+        if (resposta.ok) {
+          fecharModal();
+          carregarDados();
+        } else {
+          alert('Erro ao reservar item. Verifique a API.');
+        }
+      } catch (error) {
+        alert('Erro ao conectar com a API. Verifique se está rodando o site num servidor (não como file://).');
+      }
+    }
+
+    carregarDados();
+    setInterval(carregarDados, 30000); // Atualização automática a cada 30s
+  </script>
+</body>
+</html>
